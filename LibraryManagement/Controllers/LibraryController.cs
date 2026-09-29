@@ -23,5 +23,14 @@ namespace LibraryManagement.Controllers
 
             return Ok("Book borrowed successfully.");
         }
+
+        [HttpPost("add-book")]
+        public async Task<IActionResult> AddBook([FromBody] BookRequestDto newBook)
+        {
+            // Assuming your service has an AddBookAsync method
+            var createdBook = await _libraryService.AddBookAsync(newBook);
+
+            return Ok("Book successfully added to the system.");
+        }
     }
 }

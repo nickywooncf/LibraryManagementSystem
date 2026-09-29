@@ -1,6 +1,7 @@
 ﻿using LibraryManagement.Data;
 using LibraryManagement.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Transactions;
 
 namespace LibraryManagement.Services
 {
@@ -8,7 +9,11 @@ namespace LibraryManagement.Services
     {
         Task<bool> BorrowBookAsync(int bookId, int memberId);
         Task<bool> ReturnBookAsync(int loanId);
+
+        // Add this new method
+        Task<bool> AddBookAsync(BookRequestDto request);
     }
+
 
     public class LibraryOperationsService : ILibraryOperationsService
     {
@@ -21,14 +26,32 @@ namespace LibraryManagement.Services
 
         public async Task<bool> BorrowBookAsync(int bookId, int memberId)
         {
-            var book = await _context.Books.FindAsync(bookId);
-            if (book == null || !book.IsAvailable) return false;
+            try
+            {
 
-            var loan = new Loan { BookId = bookId, MemberId = memberId };
-            book.IsAvailable = false; // Update state
+                var book = await _context.Books.FindAsync(bookId);
+                if (book == null || !book.IsAvailable) return false;
 
-            _context.Loans.Add(loan);
-            await _context.SaveChangesAsync();
+                var loan = new Loan { BookId = bookId, MemberId = memberId };
+                book.IsAvailable = false; // Update state
+
+                _context.Loans.Add(loan);
+                await _context.SaveChangesAsync();
+              
+            }
+            catch (DbUpdateException dbEx)
+            {
+                await _context.Database.RollbackTransactionAsync();
+
+                // Log the database update exception (dbEx) here if needed
+                return false;
+            }
+            catch (Exception ex)
+            {
+                // Log the exception (ex) here if needed
+                return false;
+            }
+
             return true;
         }
 
@@ -43,6 +66,27 @@ namespace LibraryManagement.Services
             await _context.SaveChangesAsync();
             return true;
         }
+
+        public async Task<bool> AddBookAsync(BookRequestDto request)
+        {
+            // 1. Map the DTO to your actual Database Entity
+            var newBook = new Book
+            {
+                Title = request.Title,
+                Author = request.Author,
+                ISBN = request.ISBN,
+                IsAvailable = true // Defaults to true when a new book is added
+            };
+
+            // 2. Add to the In-Memory Database asynchronously
+            await _context.Books.AddAsync(newBook);
+
+            // 3. Save changes and return true if rows were affected
+            var rowsAffected = await _context.SaveChangesAsync();
+            return rowsAffected > 0;
+        }
+
+
     }
 
 }

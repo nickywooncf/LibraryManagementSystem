@@ -1,6 +1,7 @@
-using Microsoft.EntityFrameworkCore;
 using LibraryManagement.Data; // Ensure this matches your namespace
+using LibraryManagement.Models;
 using LibraryManagement.Services; // Assuming you put ILibraryOperationsService here
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,6 +24,8 @@ builder.Services.AddScoped<ILibraryOperationsService, LibraryOperationsService>(
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+
+
 // ==========================================
 // 2. Build the app and configure the HTTP request pipeline.
 // ==========================================
@@ -39,13 +42,40 @@ if (app.Environment.IsDevelopment())
 }
 
 // Redirect HTTP requests to HTTPS
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 
 // Enable authorization (even if not strictly used in this basic model, it's good practice to include it)
 app.UseAuthorization();
 
 // Map the controllers to the routing engine
 app.MapControllers();
+
+// ==========================================
+// DATA SEEDING: Auto-populate the In-Memory DB on startup
+// ==========================================
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<LibraryDbContext>();
+
+    // Check if the database is empty. If it is, add a book and a member.
+    if (!dbContext.Books.Any())
+    {
+        dbContext.Books.Add(new Book
+        {
+            Id = 1,
+            Title = "Enterprise Architecture Patterns",
+            IsAvailable = true
+        });
+
+        dbContext.Members.Add(new Member
+        {
+            Id = 101,
+            FullName = "UOB User"
+        });
+
+        dbContext.SaveChanges();
+    }
+}
 
 // Start the application
 app.Run();
